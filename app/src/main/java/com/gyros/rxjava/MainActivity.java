@@ -11,11 +11,13 @@ import android.widget.TextView;
 import com.gyros.rxjava.models.Comment;
 import com.gyros.rxjava.models.Post;
 import com.gyros.rxjava.requests.ServiceGenerator;
+import com.jakewharton.rxbinding3.view.RxView;
 
 import org.reactivestreams.Subscription;
 
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Flowable;
 import io.reactivex.FlowableSubscriber;
@@ -30,6 +32,7 @@ import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Function;
 import io.reactivex.functions.Predicate;
 import io.reactivex.schedulers.Schedulers;
+import kotlin.Unit;
 import retrofit2.http.POST;
 
 public class MainActivity extends AppCompatActivity {
@@ -51,8 +54,168 @@ public class MainActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.recycler_view);
         initRecyclerView();
         //testFilter();
-        testCreateOperator();
+        //testCreateOperator();
+        //testTake();
+        //testTakeWhile();
+        //testMapOperator();
+        //testBufferOperatorSimple();
+        testBufferOperatorUI();
+    }
 
+    private void testBufferOperatorUI(){
+        // global disposables object
+        final CompositeDisposable disposables = new CompositeDisposable();
+
+// detect clicks to a button
+        RxView.clicks(findViewById(R.id.buttonClickable))
+                .map(new Function<Unit, Integer>() { // convert the detected clicks to an integer
+                    @Override
+                    public Integer apply(Unit unit) throws Exception {
+                        return 1;
+                    }
+                })
+                .buffer(4, TimeUnit.SECONDS) // capture all the clicks during a 4 second interval
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Observer<List<Integer>>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+                        disposables.add(d); // add to disposables to you can clear in onDestroy
+                    }
+                    @Override
+                    public void onNext(List<Integer> integers) {
+                        Log.d(TAG, "onNext: You clicked " + integers.size() + " times in 4 seconds!");
+                    }
+                    @Override
+                    public void onError(Throwable e) {
+
+                    }
+                    @Override
+                    public void onComplete() {
+
+                    }
+                });
+    }
+
+    private void testBufferOperatorSimple(){
+        Observable<List<Task>> tasksObservable = Observable.fromIterable(DataSource.Companion.createTaskList())
+                .subscribeOn(Schedulers.io())
+                .buffer(2)
+                .observeOn(AndroidSchedulers.mainThread());
+        tasksObservable.subscribe(new Observer<List<Task>>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+                Log.d(TAG,"onSubscribe");
+            }
+
+            @Override
+            public void onNext(List<Task> tasks) {
+                Log.d(TAG,"onNext: "+tasks.size());
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                Log.d(TAG,"onError:");
+            }
+
+            @Override
+            public void onComplete() {
+                Log.d(TAG,"onComplete:");
+            }
+        });
+    }
+
+    private void testMapOperator(){
+        Observable<String> tasksObservable = Observable.fromIterable(DataSource.Companion.createTaskList())
+                .subscribeOn(Schedulers.computation())
+                .map(new Function<Task, String>() {
+                    @Override
+                    public String apply(Task task) throws Exception {
+                        return task.getDescription();
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread());
+        tasksObservable.subscribe(new Observer<String>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+                Log.d(TAG,"onSubscribe");
+            }
+
+            @Override
+            public void onNext(String task) {
+                Log.d(TAG,"onNext: "+task);
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                Log.d(TAG,"onError:");
+            }
+
+            @Override
+            public void onComplete() {
+                Log.d(TAG,"onComplete:");
+            }
+        });
+    }
+
+    private void testTakeWhile(){
+        Observable<Task> tasksObservable = Observable.fromIterable(DataSource.Companion.createTaskList())
+                .subscribeOn(Schedulers.computation())
+                .takeWhile(new Predicate<Task>() {
+                    @Override
+                    public boolean test(Task task) throws Exception {
+                        return task.isComplete();
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread());
+        tasksObservable.subscribe(new Observer<Task>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+                Log.d(TAG,"onSubscribe");
+            }
+
+            @Override
+            public void onNext(Task task) {
+                Log.d(TAG,"onNext: "+task.toString());
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                Log.d(TAG,"onError:");
+            }
+
+            @Override
+            public void onComplete() {
+                Log.d(TAG,"onComplete:");
+            }
+        });
+    }
+
+    private void testTake(){
+        Observable<Task> tasksObservable = Observable.fromIterable(DataSource.Companion.createTaskList())
+                .subscribeOn(Schedulers.computation())
+                .take(2)
+                .observeOn(AndroidSchedulers.mainThread());
+        tasksObservable.subscribe(new Observer<Task>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+                Log.d(TAG,"onSubscribe");
+            }
+
+            @Override
+            public void onNext(Task task) {
+                Log.d(TAG,"onNext: "+task.toString());
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                Log.d(TAG,"onError:");
+            }
+
+            @Override
+            public void onComplete() {
+                Log.d(TAG,"onComplete:");
+            }
+        });
     }
 
     private void testFlowable(){
