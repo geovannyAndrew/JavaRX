@@ -12,10 +12,16 @@ import com.gyros.rxjava.models.Comment;
 import com.gyros.rxjava.models.Post;
 import com.gyros.rxjava.requests.ServiceGenerator;
 
+import org.reactivestreams.Subscription;
+
 import java.util.List;
 import java.util.Random;
 
+import io.reactivex.Flowable;
+import io.reactivex.FlowableSubscriber;
 import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
+import io.reactivex.ObservableOnSubscribe;
 import io.reactivex.ObservableSource;
 import io.reactivex.Observer;
 import io.reactivex.android.schedulers.AndroidSchedulers;
@@ -43,8 +49,174 @@ public class MainActivity extends AppCompatActivity {
 
         textView = findViewById(R.id.textView);
         recyclerView = findViewById(R.id.recycler_view);
-        //testSimpleSubcribe();
         initRecyclerView();
+        //testFilter();
+        testCreateOperator();
+
+    }
+
+    private void testFlowable(){
+        Flowable.range(0, 1000000)
+                .onBackpressureBuffer()
+                .observeOn(Schedulers.computation())
+                .subscribe(new FlowableSubscriber<Integer>() {
+                    @Override
+                    public void onSubscribe(Subscription s) {
+
+                    }
+                    @Override
+                    public void onNext(Integer integer) {
+                        Log.d(TAG, "onNext: " + integer);
+                    }
+                    @Override
+                    public void onError(Throwable t) {
+                        Log.e(TAG, "onError: ", t);
+                    }
+                    @Override
+                    public void onComplete() {
+
+                    }
+                });
+    }
+
+    private void testFilter(){
+        Observable<Task> tasksObservable = Observable.fromIterable(DataSource.Companion.createTaskList())
+                .subscribeOn(Schedulers.computation())
+                .filter(new Predicate<Task>() {
+                    @Override
+                    public boolean test(Task task) throws Exception {
+                        Thread.sleep(1000);
+                        return task.isComplete();
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread());
+        tasksObservable.subscribe(new Observer<Task>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+                Log.d(TAG,"onSubscribe");
+            }
+
+            @Override
+            public void onNext(Task task) {
+                Log.d(TAG,"onNext: "+task.toString());
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                Log.d(TAG,"onError:");
+            }
+
+            @Override
+            public void onComplete() {
+                Log.d(TAG,"onComplete:");
+            }
+        });
+    }
+
+    private void testCreateOperator(){
+        final Task task = DataSource.Companion.createTaskList().get(0);
+
+        Observable<Task> taskObservable = Observable.create(new ObservableOnSubscribe<Task>() {
+            @Override
+            public void subscribe(ObservableEmitter<Task> emitter) throws Exception {
+                if(!emitter.isDisposed()){
+                    emitter.onNext(task);
+                    emitter.onComplete();
+                }
+            }
+        }).subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread());
+        taskObservable.subscribe(new Observer<Task>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+                Log.d(TAG,"onSubscribe");
+            }
+
+            @Override
+            public void onNext(Task task) {
+                Log.d(TAG,"onNext: "+task.toString());
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                Log.d(TAG,"onError:");
+            }
+
+            @Override
+            public void onComplete() {
+                Log.d(TAG,"onComplete:");
+            }
+        });
+    }
+
+    private void testCreateOperatorList(){
+        final List<Task> tasks = DataSource.Companion.createTaskList();
+
+        Observable<Task> taskObservable = Observable.create(new ObservableOnSubscribe<Task>() {
+            @Override
+            public void subscribe(ObservableEmitter<Task> emitter) throws Exception {
+                for (Task task:tasks){
+                    if(!emitter.isDisposed()){
+                        emitter.onNext(task);
+                    }
+                }
+                if(!emitter.isDisposed()){
+                    emitter.onComplete();
+                }
+
+            }
+        }).subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread());
+        taskObservable.subscribe(new Observer<Task>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+                Log.d(TAG,"onSubscribe");
+            }
+
+            @Override
+            public void onNext(Task task) {
+                Log.d(TAG,"onNext: "+task.toString());
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                Log.d(TAG,"onError:");
+            }
+
+            @Override
+            public void onComplete() {
+                Log.d(TAG,"onComplete:");
+            }
+        });
+    }
+
+    private void testRange(){
+        //Print from 0 to 8 because it's not inclusivo
+        Observable<Integer> observable = Observable.range(0,9)
+                .subscribeOn(Schedulers.computation())
+                .observeOn(AndroidSchedulers.mainThread());
+        observable.subscribe(new Observer<Integer>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+                Log.d(TAG,"onSubscribe");
+            }
+
+            @Override
+            public void onNext(Integer integer) {
+                Log.d(TAG,"onNext: "+integer);
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                Log.d(TAG,"onError:");
+            }
+
+            @Override
+            public void onComplete() {
+                Log.d(TAG,"onComplete:");
+            }
+        });
+    }
+
+    private void testFlatMap(){
         getPostsObservable()
                 .subscribeOn(Schedulers.io())
                 .flatMap(new Function<Post, ObservableSource<Post>>() {
@@ -77,7 +249,6 @@ public class MainActivity extends AppCompatActivity {
 
                     }
                 });
-
     }
 
     private void testSimpleSubcribe(){
@@ -121,6 +292,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG,"onComplete: called");
             }
         });
+
     }
 
     private void initRecyclerView(){

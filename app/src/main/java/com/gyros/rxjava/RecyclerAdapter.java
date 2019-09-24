@@ -44,7 +44,6 @@ public class RecyclerAdapter extends RecyclerView.Adapter<RecyclerAdapter.MyView
     }
 
     public void updatePost(Post post){
-        posts.set(posts.indexOf(post), post);
         notifyItemChanged(posts.indexOf(post));
     }
 
