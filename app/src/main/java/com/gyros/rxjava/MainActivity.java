@@ -1,11 +1,13 @@
 package com.gyros.rxjava;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SearchView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.Button;
 import android.widget.TextView;
 
 import com.gyros.rxjava.models.Comment;
@@ -44,6 +46,8 @@ public class MainActivity extends AppCompatActivity {
     private CompositeDisposable disposables = new CompositeDisposable();
     private RecyclerView recyclerView;
     private RecyclerAdapter adapter;
+    private SearchView searchView;
+    private long timeSinceLastRequest;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
 
         textView = findViewById(R.id.textView);
         recyclerView = findViewById(R.id.recycler_view);
+        searchView = findViewById(R.id.search_view);
         initRecyclerView();
         //testFilter();
         //testCreateOperator();
@@ -59,7 +64,95 @@ public class MainActivity extends AppCompatActivity {
         //testTakeWhile();
         //testMapOperator();
         //testBufferOperatorSimple();
-        testBufferOperatorUI();
+        //testBufferOperatorUI();
+        testDebounceOperatorUI();
+    }
+
+    //Prevent click spamming
+    private void testThrottleFirstOperatorUI(){
+        Button button = findViewById(R.id.buttonClickable);
+        RxView.clicks(button)
+                .throttleFirst(2000, TimeUnit.MILLISECONDS) // Throttle the clicks so 500 ms must pass before registering a new click
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Observer<Unit>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+                        disposables.add(d);
+                    }
+                    @Override
+                    public void onNext(Unit unit) {
+                        Log.d(TAG, "onNext: time since last clicked: " + (System.currentTimeMillis() - timeSinceLastRequest));
+                        someMethod(); // Execute some method when a click is registered
+                    }
+                    @Override
+                    public void onError(Throwable e) {
+                    }
+                    @Override
+                    public void onComplete() {
+                    }
+                });
+    }
+
+    private void someMethod(){
+
+    }
+
+    private void testDebounceOperatorUI(){
+        timeSinceLastRequest = System.currentTimeMillis();
+
+        // create the Observable
+        Observable<String> observableQueryText = Observable
+                .create(new ObservableOnSubscribe<String>() {
+                    @Override
+                    public void subscribe(final ObservableEmitter<String> emitter) throws Exception {
+
+                        // Listen for text input into the SearchView
+                        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+                            @Override
+                            public boolean onQueryTextSubmit(String query) {
+                                return false;
+                            }
+
+                            @Override
+                            public boolean onQueryTextChange(final String newText) {
+                                if(!emitter.isDisposed()){
+                                    emitter.onNext(newText); // Pass the query to the emitter
+                                }
+                                return false;
+                            }
+                        });
+                    }
+                })
+                .debounce(500, TimeUnit.MILLISECONDS) // Apply Debounce() operator to limit requests
+                .subscribeOn(Schedulers.io());
+
+        // Subscribe an Observer
+        observableQueryText.subscribe(new Observer<String>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+                disposables.add(d);
+            }
+            @Override
+            public void onNext(String s) {
+                Log.d(TAG, "onNext: time  since last request: " + (System.currentTimeMillis() - timeSinceLastRequest));
+                Log.d(TAG, "onNext: search query: " + s);
+                timeSinceLastRequest = System.currentTimeMillis();
+
+                // method for sending a request to the server
+                sendRequestToServer(s);
+            }
+            @Override
+            public void onError(Throwable e) {
+            }
+            @Override
+            public void onComplete() {
+            }
+        });
+    }
+
+    // Fake method for sending a request to the server
+    private void sendRequestToServer(String query){
+        // do nothing
     }
 
     private void testBufferOperatorUI(){
