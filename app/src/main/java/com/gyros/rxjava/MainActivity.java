@@ -475,7 +475,47 @@ public class MainActivity extends AppCompatActivity {
     private void testFlatMap(){
         getPostsObservable()
                 .subscribeOn(Schedulers.io())
+                //Execute all post at the same time
                 .flatMap(new Function<Post, ObservableSource<Post>>() {
+                    @Override
+                    public ObservableSource<Post> apply(Post post) throws Exception {
+                        //Thread.sleep(200);
+                        return getCommentsObservable(post);
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Observer<Post>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+                        disposables.add(d);
+                    }
+
+                    @Override
+                    public void onNext(Post post) {
+                        //Log.d(TAG,"onNext"+post.getBody());
+                        adapter.updatePost(post);
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Log.e(TAG,"onError:",e);
+                    }
+
+                    @Override
+                    public void onComplete() {
+
+                    }
+                });
+    }
+
+    /**
+     * Same as flat map operator the online diference is order list is ordered and syncronized, it's to say is processing one post at the time
+     */
+    private void testConcatMap(){
+        getPostsObservable()
+                .subscribeOn(Schedulers.io())
+                //Execute one post at the time
+                .concatMap(new Function<Post, ObservableSource<Post>>() {
                     @Override
                     public ObservableSource<Post> apply(Post post) throws Exception {
                         //Thread.sleep(200);
